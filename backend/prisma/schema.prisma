@@ -1,0 +1,233 @@
+// Prisma Schema for AI Partner App
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ユーザー
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  characters    Character[]
+  conversations Conversation[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// キャラクター
+model Character {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  age       Int
+  occupation String
+  hobbies   String
+  favoriteFood String
+  birthday  DateTime
+  bio       String
+
+  // 外見
+  appearanceStyle     String // realistic/anime/manga
+  hairColor           String
+  hairStyle           String
+  eyeColor            String
+  skinTone            String
+  height              String
+  bodyType            String
+  outfit              String
+  accessories         String
+  customPrompt        String?
+
+  // 性格
+  personalityArchetype String // gentle/cheerful/cool/shy etc
+  traits               String
+  speechStyle          String // polite/casual/formal/cute etc
+  emotionalTendency    String // stable/expressive/reserved/passionate
+  interests            String
+  values               String
+
+  // 音声
+  voiceProvider String @default("gemini")
+  voiceId       String
+  voicePitch    Float  @default(0)
+  voiceSpeed    Float  @default(1.0)
+  voiceStyle    String @default("normal")
+
+  // 画像
+  sourceImagePath String? // ユーザーがアップロードした元画像のローカルパス
+  primaryImageUrl String?
+  expressionUrls  Json?   // { neutral: "url", smile: "url", ... }
+  imagesGenerated Boolean @default(false)
+  lastGeneratedAt DateTime?
+
+  // 動画 (I2V)
+  videoUrls       Json?   // { action_name: "video_url", ... } e.g. { "wave": "url", "smile": "url" }
+  videosGenerated Boolean @default(false)
+
+  // 統計
+  totalConversations   Int      @default(0)
+  totalMessages        Int      @default(0)
+  datesCount           Int      @default(0)
+  giftsReceived        Int      @default(0)
+  eventsCompleted      Int      @default(0)
+  lastInteraction      DateTime @default(now())
+  averageResponseTime  Float    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  stageProgress StageProgress?
+  memories      Memory[]
+  scenes        Scene[]
+
+  @@map("characters")
+}
+
+// ステージ進行状態
+model StageProgress {
+  id            String   @id @default(uuid())
+  characterId   String   @unique
+  userId        String
+  currentStage  String   // first_meet/dating/relationship/proposal/marriage
+  affection     Float    @default(0) // 0-100
+  unlockedStages String // 解放済みステージ
+  completedEvents String // 完了済みイベントID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("stage_progress")
+}
+
+// 会話セッション
+model Conversation {
+  id            String   @id @default(uuid())
+  userId        String
+  characterId   String
+  stage         String   // current stage
+
+  // コンテキスト
+  recentTopics     String
+  importantEvents  String
+  userPreferences  Json?
+  currentMood      String   @default("neutral")
+  location         String?
+  timeOfDay        String   // morning/afternoon/evening/night
+
+  // 統計
+  totalMessages       Int      @default(0)
+  userMessages        Int      @default(0)
+  characterMessages   Int      @default(0)
+  averageResponseTime Float    @default(0)
+  longestConversation Int      @default(0)
+  lastActive          DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastMessageAt DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@map("conversations")
+}
+
+// メッセージ
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  sender         String   // user/character
+  content        String
+  type           String   // text/voice/image/video/event/system
+
+  // メタデータ
+  emotion      String?
+  expression   String?
+  voiceUrl     String?
+  imageUrl     String?
+  videoUrl     String?
+  eventId      String?
+  audioLength  Float?
+  readAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// キャラクターの記憶
+model Memory {
+  id              String   @id @default(uuid())
+  characterId     String
+  type            String   // personal/preference/event/emotion/shared
+  content         String
+  importance      Float    // 0-1
+  relatedEventId  String?
+
+  createdAt DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId, importance])
+  @@map("memories")
+}
+
+// シーン画像・動画
+model Scene {
+  id          String   @id @default(uuid())
+  characterId String
+  type        String   // date/proposal/daily/special
+  url         String
+  prompt      String
+
+  // メタデータ
+  location String?
+  event    String?
+  mood     String?
+
+  createdAt DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("scenes")
+}
+
+// 通知
+model Notification {
+  id      String   @id @default(uuid())
+  userId  String
+  type    String   // morning/evening/anniversary/event
+  title   String
+  message String
+  read    Boolean  @default(false)
+  readAt  DateTime?
+
+  scheduledFor DateTime?
+  sentAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
