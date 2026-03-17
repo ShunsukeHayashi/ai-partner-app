@@ -1,3 +1,5 @@
+[![Built by 合同会社みやび](https://img.shields.io/badge/Built%20by-合同会社みやび-blue?style=flat-square&logo=github)](https://miyabi-ai.jp)
+
 # AI Partner App - 擬似恋愛・結婚生活体験アプリ
 
 生成AIを使った擬似的なパートナー体験アプリケーション。出会いから結婚生活までをシミュレートします。
